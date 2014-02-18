@@ -252,7 +252,13 @@ func TestEOFErrorLine(t *testing.T) {
 
 func TestCommentInSection(t *testing.T) {
 	p := newTestParser("[section # This is a comment ]\n", t)
-	p.error()
+	err := p.error()
+	if err.Line != 1 {
+		t.Fatalf("Expected error on line 1, got %d", err.Line)
+	}
+	if err.Col != 10 {
+		t.Fatalf("Expected error in column 10, go %d", err.Col)
+	}
 }
 
 func TestInvalidEncoding(t *testing.T) {
@@ -268,5 +274,41 @@ func TestInvalidEncoding(t *testing.T) {
 
 func TestUnterminatedString(t *testing.T) {
 	p := newTestParser("key=\"unterminated string value\n\"", t)
-	p.error()
+	err := p.error()
+	if err.Line != 1 {
+		t.Fatalf("Expected error on line 1, got %d", err.Line)
+	}
+	if err.Col != 31 {
+		t.Fatalf("Expected error in column 31, got %d", err.Col)
+	}
+}
+
+func TestSectionParameterWithEscapes(t *testing.T) {
+	p := newTestParser("[section \"\\\\\\t\\r\\n\\\"\"]", t)
+	p.section("section", "\\\t\r\n\"")
+	p.eof()
+}
+
+func TestInvalidEscape(t *testing.T) {
+	p := newTestParser("[section \"\\b\"]", t)
+	err := p.error()
+	if err.Line != 1 {
+		t.Fatalf("Expected error on line 1, got %d", err.Line)
+	}
+	if err.Col != 12 {
+		t.Fatalf("Expected error in column 12, got %d", err.Col)
+	}
+}
+
+func TestJavaPropertiesFile(t *testing.T) {
+	file := `# Test File
+com.sun.foo = Value 1
+com.sun.bar = Value 2
+com.sun.baz = Value 3
+`
+	p := newTestParser(file, t)
+	p.key("", "", "com.sun.foo", "Value 1")
+	p.key("", "", "com.sun.bar", "Value 2")
+	p.key("", "", "com.sun.baz", "Value 3")
+	p.eof()
 }
